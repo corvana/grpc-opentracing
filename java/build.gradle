@@ -1,12 +1,17 @@
 description = "grpc-java: OpenTracing"
 
 group = "io.opentracing.contrib"
-version = '0.2.0'
-version = '0.3.0'
+version = '0.3.1-corvana'
 
 apply plugin: 'java'
 apply plugin: 'maven'
-apply plugin: 'signing'
+
+ext.corvanaCreds = new XmlSlurper().parse(new File(System.getProperty("user.home"), ".m2/settings.xml"))."servers"."server"
+  .find { it."id".text() == "repo.corvana.com" }
+
+ext.mavenUrl = "${System.properties.getOrDefault('corvana.nexus.baseurl', 'https://repo.corvana.com')}/repository/maven/"
+ext.mavenReleases = "${System.properties.getOrDefault('corvana.nexus.baseurl', 'https://repo.corvana.com')}/repository/corvana-releases/"
+ext.mavenSnapshots = "${System.properties.getOrDefault('corvana.nexus.baseurl', 'https://repo.corvana.com')}/repository/corvana-snapshots/"
 
 sourceSets {
     main {
@@ -38,27 +43,31 @@ artifacts {
     archives sourcesJar
 }
 
-signing {
-    sign configurations.archives
-}
-
 repositories {
-    mavenCentral()
+    maven {
+        credentials {
+            username corvanaCreds.username.text()
+            password corvanaCreds.password.text()
+        }
+        url mavenUrl
+    }
+    maven {
+        url uri("${System.getProperty('user.home')}/.m2/repository")
+    }
 }
 
 jar {
     baseName 'grpc-opentracing'
-    version = '0.2.0'
-    version = '0.3.0'
+    version = '0.3.1-corvana'
 }
 
 dependencies {
-    compile 'io.grpc:grpc-core:1.6.1'
-    compile 'io.opentracing:opentracing-api:0.30.0'
-    testCompile 'io.opentracing:opentracing-mock:0.30.0'
-    testCompile 'io.grpc:grpc-protobuf:1.6.1'
-    testCompile 'io.grpc:grpc-netty:1.6.1'
-    testCompile 'io.grpc:grpc-stub:1.6.1'
+    compile 'io.grpc:grpc-core:1.7.0'
+    compile 'io.opentracing:opentracing-api:0.31.0'
+    testCompile 'io.opentracing:opentracing-mock:0.31.0'
+    testCompile 'io.grpc:grpc-protobuf:1.7.0'
+    testCompile 'io.grpc:grpc-netty:1.7.0'
+    testCompile 'io.grpc:grpc-stub:1.7.0'
     testCompile 'junit:junit:4.12'
 }
 
@@ -77,47 +86,17 @@ nexusStaging {
     packageGroup = "io.opentracing"
 }
 
+test {
+    maxParallelForks = 1
+}
+
 uploadArchives {
-    repositories {
-        mavenDeployer {
-            beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
-
-            repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
-                authentication(userName: sonatypeUsername, password: sonatypePassword)
-            }
-
-            snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
-                authentication(userName: sonatypeUsername, password: sonatypePassword)
-            }
-
-            pom.project {
-                name 'grpc-opentracing'
-                packaging 'jar'
-                // optionally artifactId can be defined here
-                description 'Provides support for integrating OpenTracing in grpc clients and servers.'
-                url 'http://www.github.com/grpc-ecosystem/grpc-opentracing'
-
-                scm {
-                    url 'scm:git@github.com:grpc-ecosystem:grpc-opentracing.git'
-                    connection 'scm:git@github.com:grpc-ecosystem/grpc-opentracing.git'
-                    developerConnection 'scm:git@github.com:grpc-ecosystem/grpc-opentracing.git'
-                }
-
-                licenses {
-                    license {
-                        name 'BSD-3'
-                        url 'https://opensource.org/licenses/BSD-3-Clause'
-                    }
-                }
-
-                developers {
-                    developer {
-                        name 'Kathy Camenzind'
-                        email 'kcamenzind@lightstep.com'
-                    }
-                }
-
-            }
+    repositories.mavenDeployer {
+        repository(url: mavenReleases) {
+            authentication(userName: corvanaCreds.username.text(), password: corvanaCreds.password.text())
+        }
+        snapshotRepository(url: mavenSnapshots) {
+            authentication(userName: corvanaCreds.username.text(), password: corvanaCreds.password.text())
         }
     }
 }
